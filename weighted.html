@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>可定制权重的信息排序 v2</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--line:#e3e5e9;--txt:#1b1d21;--dim:#6b7280;--acc:#2f6fb5;--warn:#c0392b;--ok:#1c6b34}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);
+font:14.5px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+header{position:sticky;top:0;z-index:9;background:rgba(255,255,255,.97);border-bottom:1px solid var(--line);
+padding:12px 18px;backdrop-filter:blur(8px)}
+h1{font-size:16px;margin:0 0 8px;font-weight:600}
+h1 span{color:var(--dim);font-weight:400;font-size:12.5px;margin-left:8px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.preset{padding:5px 12px;border-radius:99px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:13px;color:#333}
+.preset.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.ghost{padding:5px 12px;border-radius:99px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:13px;color:#555}
+.panel{display:none;margin-top:10px;padding:12px 14px;background:#fbfcfe;border:1px solid var(--line);border-radius:10px}
+.panel.on{display:block}
+.wrow{display:grid;grid-template-columns:104px 1fr 40px;gap:10px;align-items:center;margin:5px 0;font-size:13px}
+.wrow input[type=range]{width:100%}
+.wrow b{color:var(--acc);text-align:right}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.tag{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:2px 9px;cursor:pointer;background:#fff;color:#555}
+.tag.on{background:#e8f0fb;border-color:#9dbfe8;color:#1d4d8a}
+main{padding:14px 18px 44px;max-width:1080px;margin:0 auto}
+.lane{margin:0 0 16px}
+.lane h2{font-size:13px;color:var(--dim);margin:0 0 7px;font-weight:500;letter-spacing:.4px}
+.lane h2 em{color:var(--warn);font-style:normal;margin-left:4px}
+.row{display:grid;grid-template-columns:26px 50px 1fr auto;gap:10px;align-items:center;background:var(--card);
+border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 6px}
+.row.done{opacity:.45;text-decoration:line-through}
+.row input[type=checkbox]{width:15px;height:15px;cursor:pointer}
+.score{font-size:15px;font-weight:600;color:var(--acc);text-align:center}
+.score small{display:block;font-size:10px;color:var(--dim);font-weight:400}
+.tt{min-width:0}
+.tt a{color:inherit;text-decoration:none}
+.t1{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t2{font-size:11.5px;color:var(--dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chips{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:420px}
+.chip{font-size:11px;padding:1px 7px;border-radius:99px;background:#eef2f8;color:#43506b;white-space:nowrap}
+.chip.hi{background:#fdecea;color:#a8322a}
+.chip.ok{background:#e9f6ec;color:#1c6b34}
+.chip.me{background:#fff4e5;color:#8a5a12}
+.setdue{font-size:11px;color:var(--acc);cursor:pointer;border:1px dashed #9dbfe8;border-radius:6px;padding:1px 6px}
+input[type=date]{font-size:11.5px;padding:2px 4px;border:1px solid var(--line);border-radius:6px}
+.search{flex:1;min-width:160px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);font-size:13px}
+.fold{font-size:12.5px;color:var(--dim);cursor:pointer;padding:6px 2px}
+</style></head><body>
+<header>
+  <h1><a href="../board.html" style="color:inherit;text-decoration:none">← 看板</a> · 信息排序 · 权重可定制
+    <span>8 个因子 / 可设截止 / 可标已处理 ｜ 数据 2026-10-25 14:05</span></h1>
+  <div class="bar">
+    <button class="preset on" data-p="fresh">大一新生</button>
+    <button class="preset" data-p="baoyan">保研冲刺</button>
+    <button class="preset" data-p="hw">作业优先</button>
+    <button class="preset" data-p="grab">抢名额预警</button>
+    <input class="search" id="q" placeholder="搜索标题 / 正文…" oninput="draw()">
+    <button class="ghost" onclick="document.getElementById('panel').classList.toggle('on')">⚙ 权重</button>
+    <button class="ghost" onclick="share()">↗ 分享排序</button>
+  </div>
+  <div class="panel" id="panel">
+    <div id="sliders"></div>
+    <div class="tags" id="tagbox"></div>
+  </div>
+</header>
+<main id="main"></main>
+<script>
+const DATA = [{"t": "盘锦校区总务部技术助理招募：网安驿站(20人)+E03礼堂视听(20人)", "type": "机会", "src": "公众号", "due": "2026-10-19 23:59", "url": "http://mp.weixin.qq.com/s?__biz=MzkyNTY3NjQ0Mg==&mid=2247491468&idx=1&sn=2e379538ee46a6ae66b1da5d81e9ee00&chksm=c063760a98eb333063c3cae5fe0bfccf32157a2307676f03d2952d35d0c327745e1a2ee088b2&scene=0&xtrack=1#rd", "act": "报名已于 10-19 截止。仍可致电 0427-2631000（孙老师）询问是否还有余名额或下一期招募；岗位给【学时认定】，网安岗涉及安全告警处置/巡检/日志分析，视听岗为灯光音响调试", "aud": "全体在校生，不限专业（两个岗位各 20 人，共 40 人）", "st": "active", "f": {"due": {"v": 1.0, "n": "已逾期 6 天"}, "by": {"v": 0.18, "n": "升学低相关"}, "src": {"v": 0.85, "n": "公众号"}, "grab": {"v": 0.0, "n": ""}, "cost": {"v": 1.0, "n": "需提交/报名"}, "hw": {"v": 0.0, "n": ""}, "me": {"v": 0.78, "n": "本院/本年级"}}, "tg": [["竞赛", 0.0], ["学业", 0.0], ["奖助", 0.0], ["文体", 0.0], ["升学", 0.0], ["生活", 1.0]]}, {"t": "中央歌剧院《传承薪火·礼赞长征》盘锦校区专场音乐会（抢票）", "type": "活动", "src": "公众号", "due": "2026-10-22 12:00", "url": "https://mp.weixin.qq.com/s?__biz=MjM5MjI3NzMzNA==&mid=2652902752&idx=1&sn=990663f78bce9ed58a3c4089325dc61b", "act": "10-22（周四）12:00 起在「i大工-活动报名」领票；另可在推送下留言谈长征精神感悟，10-23 10:00 前点赞前 5 名送票一张。演出需提前 20 分钟入场，开始后谢绝入场", "aud": "校区师生", "st": "active", "f": {"due": {"v": 1.0, "n": "已逾期 3 天"}, "by": {"v": 0.18, "n": "升学低相关"}, "src": {"v": 0.85, "n": "公众号"}, "grab": {"v": 1.0, "n": "名额紧张"}, "cost": {"v": 1.0, "n": "需提交/报名"}, "hw": {"v": 0.0, "n": ""}, "me": {"v": 0.78, "n": "本院/本年级"}}, "tg": [["竞赛", 0.0], ["学业", 0.0], ["奖助", 0.0], ["文体", 1.0], ["升学", 0.0], ["生活", 0.0]]}, {"t": "化工海洋与生命学院2026-2027学年秋季学期团支部推优工作（推优入党）", "type": "机会", "src": "官网", "due": "2026-10-21 20:00", "url": "https://hyxy.dlut.edu.cn/info/1991/33592.htm", "act": "若你已提交入党申请书且符合条件，联系团支书确认是否被列入推优候选人；推优大会于2026-10-15~10-21召开，10-21 12:00前团支部上报材料", "aud": "已提交入党申请书、年满18周岁、团龄1年以上的共青团员（各基层团支部推优比例不过10%）", "st": "active", "f": {"due": {"v": 1.0, "n": "已逾期 4 天"}, "by": {"v": 0.62, "n": "升学中相关"}, "src": {"v": 1.0, "n": "官网"}, "grab": {"v": 0.0, "n": ""}, "cost": {"v": 1.0, "n": "需提交/报名"}, "hw": {"v": 0.0, "n": ""}, "me": {"v": 0.78, "n": "本院/本年级"}}, "tg": [["竞赛", 0.0], ["学业", 0.0], ["奖助", 0.0], ["文体", 0.0], ["升学", 0.0], ["生活", 0.0]]}, {"t": "化海生学院三人制女子篮球赛报名", "type": "机会", "src": "微信", "due": "2026-10-22 12:00", "url": "https://mp.weixin.qq.com/s?__biz=MzY4NjM5MjU3OQ==&mid=2247485675&idx=1&sn=b81f332282c3b9b8da5f603cfe64eddf&chksm=f290eae3b5824e6e4925a88ee6303ab792cb4145e617f2f7b60bc2d48a8c47aac1853ff9ea22&mpshare=1&scene=1&srcid=1015Arb05WdZqUWjnGplPOge&sharer_shareinfo=eed63970a00162b98413c7a1da14aac1&sharer_shareinfo_first=eed63970a00162b98413c7a1da14aac1#rd", "act": "组队后由队长汇总参赛队员信息，10-22 12:00前将报名表发送至 hhstyb126@126.com；赛事群721016662", "aud": "化海生学院对三人制篮球感兴趣的同学（各队队长报名）", "st": "active", "f": {"due": {"v": 1.0, "n": "已逾期 3 天"}, "by": {"v": 0.18, "n": "升学低相关"}, "src": {"v": 0.65, "n": "群转发"}, "grab": {"v": 0.0, "n": ""}, "cost": {"v": 1.0, "n": "需提交/报名"}, "hw": {"v": 0.0, "n": ""}, "me": {"v": 0.78, "n": "本院/本年级"}}, "tg": [["竞赛", 0.0], ["学业", 0.0], ["奖助", 0.0], ["文体", 0.0], ["升学", 0.0], ["生活", 0.0]]}, {"t": "2026级学生「到梦空间」激活（第二课堂成绩单系统）", "type": "待办", "src": "微信", "due": "2026-10-20 20:00", "url": "https://mp.weixin.qq.com/s?__biz=MjM5MzQ2OTU3OA==&mid=2654311792&idx=1&sn=f4f0bba3f2a50910ba14d87888f0cdc8", "act": "名单里的同学在到梦空间APP激活成功后填写共享表格并接龙，截止 10-20 晚20点 前完成", "aud": "化海生2026级全体新生（名单中未激活者）", "st": "active", "f": {"due": {"v": 1.0, "n": "已逾期 5 天"}, "by": {"v": 0.18, "n": "升学低相关"}, "src": {"v": 0.65, "n": "群转发"}, "grab": {"v": 0.0, "n": ""}, "cost": {"v": 0.3, "n": "仅阅读"}, "hw": {"v": 0.0, "n": ""}, "me": {"v": 0.78, "n": "本院/本年级"}}, "tg": [["竞赛", 0.0], ["学业", 0.0], ["奖助", 0.0], ["文体", 0.0], ["升学", 0.0], ["生活", 0.0]]}, {"t": "科创讲堂第十一期：生命科学竞赛获奖者分享（可参加）", "type": "机会", "src": "微信", "due": "2026-10-23 15:00", "url": "", "act": "有兴趣可于 10-23 15:00 到 A01-N104 参加，听全国大学生生命科学竞赛获奖者分享备赛与竞赛干货", "aud": "化海生学院（化工海洋与生命学院）同学", "st": "active", "f": {"due": {"v": 1.0, "n": "已逾期 2 天"}, "by": {"v": 1.0, "n": "升学高相关"}, "src": {"v": 0.65, "n": "群转发"}, "grab": {"v": 0.0, "n": ""}, "cost": {"v": 0.3, "n": "仅阅读"}, "hw": {"v": 0.0, "n": ""}, "me": {"v": 0.78, "n": "本院/本年级"}}, "tg": [["竞赛", 1.0], ["学业", 0.0], ["奖助", 0.0], ["文体", 0.0], ["升学", 0.0], ["生活", 0.0]]}];
+const TAGS = ["竞赛","学业","奖助","文体","升学","生活"];
+const FACTORS = {due:"截止紧迫度", me:"个人相关度", by:"升学相关度", src:"来源可信度",
+                 grab:"名额紧张度", cost:"需要动手", hw:"作业属性", tag:"兴趣匹配"};
+const PRESETS = {
+  fresh:  {due:30, me:20, tag:15, cost:12, src:8, grab:8, by:4, hw:3, tags:["学业","生活"]},
+  baoyan: {by:35, due:25, me:15, tag:10, src:8, grab:4, cost:3, hw:0, tags:["升学","竞赛"]},
+  hw:     {hw:32, due:28, tag:8, cost:12, src:5, me:10, grab:3, by:2, tags:["学业"]},
+  grab:   {grab:42, due:25, me:12, src:8, tag:6, cost:4, by:3, hw:0, tags:["文体"]}
+};
+const K_W="cw2", K_DONE="cw2_done", K_DUE="cw2_due", K_TAG="cw2_tags";
+let W = JSON.parse(localStorage.getItem(K_W) || "null") || {...PRESETS.fresh};
+let DONE = new Set(JSON.parse(localStorage.getItem(K_DONE) || "[]"));
+let OVER = JSON.parse(localStorage.getItem(K_DUE) || "{}");
+W.tags = JSON.parse(localStorage.getItem(K_TAG) || "null") || W.tags || [...PRESETS.fresh.tags];
+
+(function fromUrl(){
+  const u = new URLSearchParams(location.search);
+  const w = u.get("w"); if(w){ const a=w.split(",").map(Number);
+    const ks=["due","me","by","src","grab","cost","hw","tag"];
+    if(a.length===8) ks.forEach((k,i)=>W[k]=a[i]); }
+  const t = u.get("tags"); if(t) W.tags = t.split(",").filter(Boolean);
+})();
+
+const esc = s => String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const todayStr = () => { const d=new Date(); return d.toISOString().slice(0,10); };
+
+function effDue(it){ return OVER[it.t] || it.due; }
+function daysOf(due){
+  if(!due) return null;
+  const d = new Date((due.length>10?due:due+" 23:59").replace(/-/g,"/"));
+  if(isNaN(d)) return null;
+  return Math.round((new Date(d.toDateString()) - new Date(new Date().toDateString()))/86400000);
+}
+function dueFactor(due){
+  const k = daysOf(due);
+  if(k===null) return [0.10,"无日期"];
+  if(k<0) return [1.00,"已逾期 "+Math.abs(k)+" 天"];
+  if(k===0) return [0.98,"今天截止"];
+  if(k<=1) return [0.95,"剩 1 天"];
+  if(k<=3) return [0.82,"剩 "+k+" 天"];
+  if(k<=7) return [0.62,"剩 "+k+" 天"];
+  if(k<=14) return [0.42,"剩 "+k+" 天"];
+  if(k<=30) return [0.26,"剩 "+k+" 天"];
+  return [0.14,"剩 "+k+" 天"];
+}
+function tagHit(it){ const on=new Set(W.tags); for(const [n,v] of it.tg) if(v>0&&on.has(n)) return n; return ""; }
+
+function score(it){
+  const due = effDue(it);
+  const f = {};
+  f.due = dueFactor(due);
+  for(const k of ["me","by","src","grab","cost","hw"]) f[k] = [it.f[k].v, it.f[k].n];
+  const th = tagHit(it);
+  f.tag = [th?1:0.12, th?("兴趣·"+th):"类别不匹配"];
+  let sum=0, tot=0;
+  for(const k in f){ const w=W[k]||0; sum+=w*f[k][0]; tot+=w; }
+  const s = tot? sum/tot*100 : 0;
+  const parts = Object.entries(f).map(([k,[v,n]])=>({k,c:(W[k]||0)*v/Math.max(tot,1)*100,n}))
+    .filter(x=>x.c>=3).sort((a,b)=>b.c-a.c);
+  return {s:Math.round(s), parts};
+}
+function laneOf(it){
+  if(it.st==="ended") return "ended";
+  const k = daysOf(effDue(it));
+  if(k===null) return "nodate";
+  if(k<=0) return "today";
+  if(k<=3) return "soon";
+  if(k<=14) return "week";
+  return "later";
+}
+function draw(){
+  const q = (document.getElementById("q").value||"").trim().toLowerCase();
+  const L = {today:[],soon:[],week:[],later:[],nodate:[],ended:[]};
+  let doneN = 0;
+  for(const it of DATA){
+    if(q && !((it.t+" "+it.act+" "+it.aud).toLowerCase().includes(q))) continue;
+    if(DONE.has(it.t)){ doneN++; continue; }
+    const r = score(it); it._s=r.s; it._p=r.parts;
+    L[laneOf(it)].push(it);
+  }
+  for(const k in L) L[k].sort((a,b)=>b._s-a._s);
+  const names = {today:"今天截止 / 逾期未处理", soon:"3 天内", week:"两周内", later:"之后",
+                 nodate:"无日期 · 待定（可手动设截止）", ended:"已结束 · 仅存档"};
+  let h = "";
+  for(const k of ["today","soon","week","later","nodate","ended"]){
+    if(!L[k].length) continue;
+    h += '<div class="lane"><h2>'+names[k]+'<em>'+L[k].length+'</em></h2>';
+    if(k==="ended"){
+      h += '<div class="row" style="background:#fafbfc"><div></div><div class="score" style="color:#9aa3b2">—</div>'
+        + '<div class="tt"><div class="t1" style="color:#8b949e">'+L[k].length+' 条已结束通知已归档</div>'
+        + '<div class="t2">不参与排序与提醒，仅在回查时展开</div></div><div class="chips"></div></div>';
+      h += '</div>'; continue;
+    }
+    const cap = k==="nodate" ? 8 : 10;
+    for(const it of L[k].slice(0, cap)){
+      const chips = it._p.slice(0,3).map(p=>{
+        const cls = (p.k==="grab"||p.k==="due")?"hi":((p.k==="me")?"me":((p.k==="by"||p.k==="tag")?"ok":""));
+        return '<span class="chip '+cls+'">'+esc(p.n)+' +'+Math.round(p.c)+'</span>';
+      }).join("");
+      const t = it.url ? '<a href="'+esc(it.url)+'" target="_blank">'+esc(it.t)+'</a>' : esc(it.t);
+      const due = effDue(it);
+      const setBtn = (k==="nodate")
+        ? '<span class="setdue" onclick="setDue(\''+esc(it.t).replace(/'/g,"&#39;")+'\')">设截止</span>'
+        : '';
+      h += '<div class="row" id="r_'+esc(it.t).replace(/[^a-zA-Z0-9]/g,"")+'">'
+        + '<input type="checkbox" onclick="markDone(\''+esc(it.t).replace(/'/g,"&#39;")+'\')">'
+        + '<div class="score">'+it._s+'<small>分</small></div>'
+        + '<div class="tt"><div class="t1">'+t+'</div>'
+        + '<div class="t2">'+esc(it.type)+' ｜ '+esc(it.src)+' ｜ '+esc(due||"无日期")+(it.aud?' ｜ '+esc(it.aud):'')+'</div></div>'
+        + '<div class="chips">'+chips+setBtn+'</div></div>';
+    }
+    if(L[k].length>cap) h += '<div class="fold">还有 '+(L[k].length-cap)+' 条（已折叠）</div>';
+    h += '</div>';
+  }
+  h = '<div class="fold">已处理 '+doneN+' 条 ｜ 共 '+DATA.length+' 条'+(OVER&&Object.keys(OVER).length?' ｜ 手动设截止 '+Object.keys(OVER).length+' 条':'')+'</div>' + h;
+  document.getElementById("main").innerHTML = h;
+}
+function markDone(t){ DONE.add(t); localStorage.setItem(K_DONE, JSON.stringify([...DONE])); draw(); }
+function setDue(t){
+  const v = prompt("给这条设一个截止日期（YYYY-MM-DD，留空则清除）：", OVER[t] || "");
+  if(v===null) return;
+  if(v.trim()==="") delete OVER[t]; else if(!/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) { alert("格式应为 YYYY-MM-DD"); return; }
+  else OVER[t] = v.trim();
+  localStorage.setItem(K_DUE, JSON.stringify(OVER)); draw();
+}
+function share(){
+  const ks=["due","me","by","src","grab","cost","hw","tag"];
+  const u = location.origin + location.pathname + "?w=" + ks.map(k=>W[k]||0).join(",") + "&tags=" + W.tags.join(",");
+  navigator.clipboard?.writeText(u).then(()=>alert("已复制分享链接：\n"+u+"\n\n（静态页需本地或已发布才能分享打开）"),
+    ()=>prompt("复制这个链接：", u));
+}
+function sliders(){
+  document.getElementById("sliders").innerHTML = Object.entries(FACTORS).map(([k,label])=>
+    '<div class="wrow"><span>'+label+'</span><input type="range" min="0" max="50" value="'+(W[k]||0)+'" data-k="'+k+'"><b>'+(W[k]||0)+'</b></div>').join("");
+  document.querySelectorAll("#sliders input").forEach(el=>{
+    el.oninput = e => {
+      W[e.target.dataset.k] = +e.target.value;
+      e.target.nextElementSibling.textContent = e.target.value;
+      document.querySelectorAll(".preset").forEach(b=>b.classList.remove("on"));
+      localStorage.setItem(K_W, JSON.stringify(W)); draw();
+    };
+  });
+  document.getElementById("tagbox").innerHTML = "<span style='font-size:12px;color:#666'>兴趣：</span>" +
+    TAGS.map(t=>'<span class="tag '+(W.tags.includes(t)?"on":"")+'" data-t="'+t+'">'+t+'</span>').join("");
+  document.querySelectorAll(".tag").forEach(el=>{
+    el.onclick = () => {
+      const t = el.dataset.t;
+      W.tags.includes(t) ? W.tags=W.tags.filter(x=>x!==t) : W.tags.push(t);
+      el.classList.toggle("on");
+      localStorage.setItem(K_TAG, JSON.stringify(W.tags)); draw();
+    };
+  });
+}
+document.querySelectorAll(".preset").forEach(b=>{
+  b.onclick = () => {
+    W = {...PRESETS[b.dataset.p], tags:[...PRESETS[b.dataset.p].tags]};
+    localStorage.setItem(K_W, JSON.stringify(W));
+    localStorage.setItem(K_TAG, JSON.stringify(W.tags));
+    document.querySelectorAll(".preset").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); sliders(); draw();
+  };
+});
+sliders(); draw();
+if(new URLSearchParams(location.search).has("panel")){
+  document.getElementById("panel").classList.add("on");
+}
+</script></body></html>
